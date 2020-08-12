@@ -1,7 +1,9 @@
+from flask_sqlalchemy import SQLAlchemy
+from functools import wraps
+import json
 import os
 from sqlalchemy import Column, String, Integer, create_engine
-from flask_sqlalchemy import SQLAlchemy
-import json
+
 
 database_name = "trivia"
 database_path = "postgres://{}/{}".format('localhost:5432', database_name)
@@ -20,10 +22,55 @@ def setup_db(app, database_path=database_path):
     db.create_all()
 
 '''
+  @transaction
+
+'''
+def transaction(f):
+  @wraps(f)
+  def w(*args, **kwargs):
+    success = None
+
+    try:
+      f(*args, **kwargs)
+      db.session.commit()
+      success = True
+    except:
+      db.session.rollback()
+      success = False
+    finally:
+      db.session.close()
+
+    return success
+  return w
+
+
+'''
+ModelAdditions
+
+'''
+class ModelAdditions:
+  @transaction
+  def insert(self):
+    db.session.add(self)
+
+  @transaction
+  def update(self):
+    pass
+
+  @transaction
+  def delete(self):
+    db.session.delete(self)
+
+  def fill(self, _except=[], **kwargs):
+    for key in kwargs:
+      if key not in _except and hasattr(self, key):
+        setattr(self, key, kwargs[key])
+
+'''
 Question
 
 '''
-class Question(db.Model):  
+class Question(ModelAdditions, db.Model):  
   __tablename__ = 'questions'
 
   id = Column(Integer, primary_key=True)
@@ -38,17 +85,6 @@ class Question(db.Model):
     self.category = category
     self.difficulty = difficulty
 
-  def insert(self):
-    db.session.add(self)
-    db.session.commit()
-  
-  def update(self):
-    db.session.commit()
-
-  def delete(self):
-    db.session.delete(self)
-    db.session.commit()
-
   def format(self):
     return {
       'id': self.id,
@@ -62,7 +98,7 @@ class Question(db.Model):
 Category
 
 '''
-class Category(db.Model):  
+class Category(ModelAdditions, db.Model):  
   __tablename__ = 'categories'
 
   id = Column(Integer, primary_key=True)
