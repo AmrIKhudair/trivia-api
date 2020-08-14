@@ -43,7 +43,7 @@ def create_app(test_config=None):
     question = Question.query.get(id)
     if question is None: abort(404)
 
-    Transaction(lambda: question.delete()).fail(lambda: abort(500))()
+    Transaction(lambda: question.delete()).fail(lambda: abort(422))()
 
     return jsonify({ 'success': True })
 
@@ -52,7 +52,7 @@ def create_app(test_config=None):
     try: question = Question(**request.get_json())
     except: abort(422)
 
-    Transaction(lambda: question.insert()).fail(lambda: abort(500))()
+    Transaction(lambda: question.insert()).fail(lambda: abort(422))()
 
     return jsonify({ 'success': True }), 201
 
@@ -106,6 +106,14 @@ def create_app(test_config=None):
       'message': 'Not Found',
       'success': False
     }), 404
+
+  @app.errorhandler(405)
+  def error_method_not_allowed(error):
+    return jsonify({
+      'error': 405,
+      'message': 'Method Not Allowed',
+      'success': False
+    }), 405
 
   @app.errorhandler(422)
   def error_unprocessable_entity(error):
